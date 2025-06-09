@@ -1,7 +1,8 @@
 function App() {
   return (
-    <div className="text-3xl font-bold underline text-center mt-10">
-      Hello world!
+    <div>
+      <h1>Robô de Trade com Interface Gráfica</h1>
+      <p>Bem-vindo ao painel do robô!</p>
     </div>
   );
 }
