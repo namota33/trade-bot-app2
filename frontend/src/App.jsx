@@ -1,9 +1,21 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import Dashboard from './pages/Dashboard';
+import ConfigForm from './components/ConfigForm';
+
 function App() {
   return (
-    <div>
-      <h1>Robô de Trade com Interface Gráfica</h1>
-      <p>Bem-vindo ao painel do robô!</p>
-    </div>
+    <BrowserRouter>
+      <Navbar />
+      <div style={{ padding: 20 }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/config" element={<ConfigForm />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }
 
