@@ -1,0 +1,20 @@
+# Ignora dependências
+node_modules/
+
+# Ignora logs
+*.log
+
+# Ignora pastas de build do frontend/backend
+dist/
+build/
+
+# Ignora arquivos temporários
+*.env
+.env.local
+.DS_Store
+*.swp
+
+# Vercel / Netlify
+.vercel/
+.netlify/
+node_modules/
