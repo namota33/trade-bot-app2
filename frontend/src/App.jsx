@@ -11,7 +11,7 @@ function App() {
       <div style={{ padding: 20 }}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/Dashboard" element={<Dashboard />} />
           <Route path="/config" element={<ConfigForm />} />
         </Routes>
       </div>

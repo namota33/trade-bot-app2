@@ -8,7 +8,7 @@ function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/Dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/notfound" element={<Notfound />} />
         <Route path="*" element={<Notfound />} />
       </Routes>
