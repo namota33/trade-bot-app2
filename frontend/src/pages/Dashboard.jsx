@@ -13,7 +13,7 @@ function Dashboard() {
   const [performance, setPerformance] = useState([]);
   const [isDemo, setIsDemo] = useState(true); // alternador
 
-  const backendURL = 'https://automatic-spoon-p7rpqjj599xc6v7-3000.app.github.dev';
+  const backendURL = 'https://trade-bot-app2.onrender.com';
 
   useEffect(() => {
     axios.get(`${backendURL}/api/status`).then(res => setStatus(res.data));
