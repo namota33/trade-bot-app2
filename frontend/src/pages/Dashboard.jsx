@@ -13,8 +13,9 @@ function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [config, setConfig] = useState({});
   const [performance, setPerformance] = useState([]);
-  const [mode, setMode] = useState('demo');
+  const [mode, setMode] = useState('demo'); // 'demo' ou 'real'
   const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false); // novo estado para saber se o robô está ativo
 
   const fetchAll = async () => {
     try {
@@ -25,6 +26,7 @@ function Dashboard() {
         axios.get(`${backendURL}/api/performance`)
       ]);
       setStatus(statusRes.data);
+      setRunning(statusRes.data.running); // pega status do robô
       setTrades(tradesRes.data);
       setConfig(configRes.data);
       setPerformance(perfRes.data);
@@ -50,16 +52,26 @@ function Dashboard() {
     }
   };
 
+  const toggleRobot = async () => {
+    try {
+      setLoading(true);
+      const route = running ? 'stop' : 'start';
+      await axios.post(`${backendURL}/api/${route}`);
+      setRunning(!running);
+    } catch (err) {
+      console.error("Erro ao iniciar/parar robô:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Robô de Trade</h1>
 
-      <StatusPanel status={status} />
-
-      <h2>Controle</h2>
-      <p><strong>Modo atual:</strong> {mode.toUpperCase()}</p>
+      {/* Alternar entre demo/real */}
       <button onClick={toggleMode} disabled={loading} style={{
-        marginBottom: 15,
+        marginBottom: 10,
         padding: '10px 20px',
         backgroundColor: mode === 'demo' ? '#007bff' : '#28a745',
         color: 'white',
@@ -69,15 +81,25 @@ function Dashboard() {
       }}>
         Alternar para {mode === 'demo' ? 'REAL' : 'DEMO'}
       </button>
+
+      {/* Botão de start/stop */}
+      <button onClick={toggleRobot} disabled={loading} style={{
+        marginLeft: 10,
+        marginBottom: 15,
+        padding: '10px 20px',
+        backgroundColor: running ? '#dc3545' : '#ffc107',
+        color: 'white',
+        border: 'none',
+        borderRadius: 5,
+        cursor: 'pointer'
+      }}>
+        {running ? 'Parar Robô' : 'Iniciar Robô'}
+      </button>
+
+      <StatusPanel status={status} />
       <ControlPanel backendURL={backendURL} />
-
-      <h2>Configurações</h2>
       <ConfigForm backendURL={backendURL} config={config} />
-
-      <h2>Performance</h2>
       <PerformanceChart data={performance} />
-
-      <h2>Operações</h2>
       <TradeTable trades={trades} />
     </div>
   );
