@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ConfigForm from './components/ConfigForm';
+import Notfound from './pages/Notfound';
 
 function App() {
   return (
@@ -11,8 +12,9 @@ function App() {
       <div style={{ padding: 20 }}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/Dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/config" element={<ConfigForm />} />
+          <Route path="*" element={<Notfound />} />
         </Routes>
       </div>
     </BrowserRouter>
