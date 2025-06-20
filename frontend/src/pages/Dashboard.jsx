@@ -7,42 +7,77 @@ import TradeTable from '../components/TradeTable';
 import PerformanceChart from '../components/PerformanceChart';
 
 function Dashboard() {
+  const backendURL = import.meta.env.VITE_BACKEND_URL;
+
   const [status, setStatus] = useState(null);
   const [trades, setTrades] = useState([]);
   const [config, setConfig] = useState({});
   const [performance, setPerformance] = useState([]);
-  const [isDemo, setIsDemo] = useState(true); // alternador
+  const [mode, setMode] = useState('demo');
+  const [loading, setLoading] = useState(false);
 
-  const backendURL = 'https://trade-bot-app2.onrender.com';
+  const fetchAll = async () => {
+    try {
+      const [statusRes, tradesRes, configRes, perfRes] = await Promise.all([
+        axios.get(`${backendURL}/api/status`),
+        axios.get(`${backendURL}/api/trades`),
+        axios.get(`${backendURL}/api/config`),
+        axios.get(`${backendURL}/api/performance`)
+      ]);
+      setStatus(statusRes.data);
+      setTrades(tradesRes.data);
+      setConfig(configRes.data);
+      setPerformance(perfRes.data);
+    } catch (err) {
+      console.error("Erro ao buscar dados:", err.message);
+    }
+  };
 
   useEffect(() => {
-    axios.get(`${backendURL}/api/status`).then(res => setStatus(res.data));
-    axios.get(`${backendURL}/api/trades`).then(res => setTrades(res.data));
-    axios.get(`${backendURL}/api/config`).then(res => setConfig(res.data));
-    axios.get(`${backendURL}/api/performance`).then(res => setPerformance(res.data));
+    fetchAll();
   }, []);
 
-  const toggleAccountMode = () => {
-    setIsDemo(prev => !prev);
-    // Aqui você pode opcionalmente notificar o backend sobre a troca de modo
-    console.log('Modo trocado para:', !isDemo ? 'Demo' : 'Real');
+  const toggleMode = async () => {
+    const newMode = mode === 'demo' ? 'real' : 'demo';
+    try {
+      setLoading(true);
+      await axios.post(`${backendURL}/api/mode`, { type: newMode });
+      setMode(newMode);
+    } catch (error) {
+      console.error('Erro ao trocar modo:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={{ padding: 20 }}>
       <h1>Robô de Trade</h1>
 
-      <div style={{ marginBottom: 20 }}>
-        <button onClick={toggleAccountMode}>
-          Alternar para conta {isDemo ? 'Real' : 'Demo'}
-        </button>
-        <p>Modo atual: <strong>{isDemo ? 'Demo' : 'Real'}</strong></p>
-      </div>
-
       <StatusPanel status={status} />
+
+      <h2>Controle</h2>
+      <p><strong>Modo atual:</strong> {mode.toUpperCase()}</p>
+      <button onClick={toggleMode} disabled={loading} style={{
+        marginBottom: 15,
+        padding: '10px 20px',
+        backgroundColor: mode === 'demo' ? '#007bff' : '#28a745',
+        color: 'white',
+        border: 'none',
+        borderRadius: 5,
+        cursor: 'pointer'
+      }}>
+        Alternar para {mode === 'demo' ? 'REAL' : 'DEMO'}
+      </button>
       <ControlPanel backendURL={backendURL} />
+
+      <h2>Configurações</h2>
       <ConfigForm backendURL={backendURL} config={config} />
+
+      <h2>Performance</h2>
       <PerformanceChart data={performance} />
+
+      <h2>Operações</h2>
       <TradeTable trades={trades} />
     </div>
   );
