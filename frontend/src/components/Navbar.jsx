@@ -1,21 +1,15 @@
-// src/components/Navbar.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import './Navbar.css'; // (opcional para estilos)
 
 function Navbar() {
+  console.log("Navbar carregado!"); // teste no console
+
   return (
     <nav style={styles.nav}>
       <ul style={styles.ul}>
-        <li style={styles.li}>
-          <Link style={styles.link} to="/">Home</Link>
-        </li>
-        <li style={styles.li}>
-          <Link style={styles.link} to="/dashboard">Dashboard</Link>
-        </li>
-        <li style={styles.li}>
-          <Link style={styles.link} to="/config">Config</Link>
-        </li>
+        <li><Link style={styles.link} to="/">Home</Link></li>
+        <li><Link style={styles.link} to="/dashboard">Dashboard</Link></li>
+        <li><Link style={styles.link} to="/config">Config</Link></li>
       </ul>
     </nav>
   );
@@ -33,7 +27,6 @@ const styles = {
     margin: 0,
     padding: 0,
   },
-  li: {},
   link: {
     color: 'white',
     textDecoration: 'none',
