@@ -1,7 +1,9 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 function PerformanceChart({ data }) {
-  if (!data.length) return <p>Sem dados de performance.</p>;
+  if (!Array.isArray(data) || data.length === 0) {
+    return <p>Sem dados de performance.</p>;
+  }
 
   return (
     <div>
