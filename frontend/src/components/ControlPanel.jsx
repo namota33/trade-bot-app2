@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function ControlPanel({ backendURL }) {
-  const [mode, setMode] = useState('demo');
+  const [mode, setMode] = useState(null); // inicialmente null
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,10 +28,16 @@ function ControlPanel({ backendURL }) {
   return (
     <div>
       <h3>Controle</h3>
-      <p>Modo atual: <strong>{mode.toUpperCase()}</strong></p>
-      <button onClick={toggleMode} disabled={loading}>
-        Alternar para {mode === 'demo' ? 'REAL' : 'DEMO'}
-      </button>
+      {mode ? (
+        <>
+          <p>Modo atual: <strong>{mode.toUpperCase()}</strong></p>
+          <button onClick={toggleMode} disabled={loading}>
+            Alternar para {mode === 'demo' ? 'REAL' : 'DEMO'}
+          </button>
+        </>
+      ) : (
+        <p>Carregando modo...</p>
+      )}
     </div>
   );
 }
