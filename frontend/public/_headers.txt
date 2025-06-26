@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: script-src 'self' https://trade-bot-app2.onrender.com; object-src 'none';
