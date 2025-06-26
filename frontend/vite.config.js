@@ -1,6 +1,15 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+// vite.config.js
+import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default {
   plugins: [react()],
-})
+  build: {
+    target: 'esnext', // ou 'modules'
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  }
+};
