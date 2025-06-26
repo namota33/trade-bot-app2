@@ -1,14 +1,23 @@
-const demoSimulator = require('../utils/demoTradeSimulator'); // adicione no topo
+// backend/routes/status.js
+const express = require('express');
+const router = express.Router();
+const binanceScanner = require('../utils/binanceScanner');
+const demoSimulator = require('../utils/demoTradeSimulator');
+
+let running = false;
+let pairs = [];
+let openPositions = 0;
+
+router.get('/', (req, res) => {
+  res.json({ running, pairs, openPositions });
+});
 
 router.post('/start', async (req, res) => {
   try {
     running = true;
-    pairs = await binanceScanner(); // coleta pares com alto volume
+    pairs = await binanceScanner(); // coleta os pares com maior volume
     openPositions = 0;
-
-    // inicia simulação em modo demo
-    demoSimulator.start();
-
+    demoSimulator.start(); // inicia o simulador
     res.json({ success: true, message: 'Robô iniciado', pairs });
   } catch (error) {
     console.error('Erro ao iniciar robô:', error);
@@ -20,7 +29,8 @@ router.post('/stop', (req, res) => {
   running = false;
   pairs = [];
   openPositions = 0;
-
-  demoSimulator.stop(); // para a simulação
+  demoSimulator.stop(); // para o simulador
   res.json({ success: true, message: 'Robô parado' });
 });
+
+module.exports = router;
