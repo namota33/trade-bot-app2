@@ -27,12 +27,16 @@ function saveTrades() {
   fs.writeFileSync('./data/trades.json', JSON.stringify(trades, null, 2));
 }
 
-// Simula trade com 80% de chance de ganho
+// Simula trade com 75~80% winrate baseado no setup
 function simulateTrade(pair) {
   const entryPrice = Math.random() * 100 + 10;
   const direction = Math.random() > 0.5 ? 'LONG' : 'SHORT';
-  const gain = Math.random() < 0.8;
-  const result = gain ? 0.03 : -0.015;
+
+  // 75 a 80% winrate usando lógica randômica ajustada
+  const winRate = 0.75 + Math.random() * 0.05; // entre 0.75 e 0.80
+  const gain = Math.random() < winRate;
+
+  const result = gain ? 0.03 : -0.015; // 3% gain, 1.5% loss
   const profit = balance * result;
 
   balance += profit;
@@ -48,8 +52,10 @@ function simulateTrade(pair) {
   };
 
   trades.push(trade);
+
+  const dateKey = new Date().toISOString().slice(0, 10);
   performance.push({
-    date: new Date().toISOString().slice(0, 10),
+    date: dateKey,
     profit: parseFloat(profit.toFixed(2))
   });
 
@@ -61,7 +67,6 @@ function loop() {
 
   loadConfig();
 
-  // Simula no máximo "maxSimultaneousTrades" por ciclo
   const selected = pairs.slice(0, maxSimultaneousTrades);
 
   for (const p of selected) {
@@ -77,6 +82,7 @@ module.exports = {
     loadConfig();
     trades = [];
     performance = [];
+    openPositions = 0;
     loop();
   },
   stop: () => {
