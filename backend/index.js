@@ -7,7 +7,7 @@ const performanceRoutes = require('./routes/performance');
 const modeRoutes = require('./routes/mode');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT ;
 
 app.use(cors());
 app.use(express.json());
