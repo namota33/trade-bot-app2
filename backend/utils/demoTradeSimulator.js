@@ -1,62 +1,128 @@
-// backend/utils/demoTradeSimulator.js
+// utils/demoTradeSimulator.js
 const axios = require('axios');
+const fs = require('fs');
+const path = './data/trades.json';
+
 let running = false;
 let trades = [];
-let performance = [];
-let balance = 1000; // Saldo inicial fictício
-let openPositions = 0;
-let pairs = [];
+let balance = 1000;
+let config = { initialBalance: 1000, maxSimultaneousTrades: 1 };
+let openPositions = [];
 
-const generateRandomTrade = (pair) => {
-  const entryPrice = Math.random() * 100 + 10;
+const loadConfig = () => {
+  try {
+    const data = fs.readFileSync('./config.json', 'utf8');
+    config = JSON.parse(data);
+    balance = config.initialBalance;
+  } catch {
+    config = { initialBalance: 1000, maxSimultaneousTrades: 1 };
+    balance = 1000;
+  }
+};
+
+const fetchTopPairs = async () => {
+  const res = await axios.get('https://api.binance.com/api/v3/ticker/24hr');
+  return res.data
+    .filter(p => p.symbol.endsWith('USDT'))
+    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+    .slice(0, 10)
+    .map(p => p.symbol);
+};
+
+const getCurrentPrice = async (symbol) => {
+  const res = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+  return parseFloat(res.data.price);
+};
+
+const openTrade = async (symbol) => {
+  const entryPrice = await getCurrentPrice(symbol);
   const direction = Math.random() > 0.5 ? 'LONG' : 'SHORT';
-  const gain = Math.random() < 0.75; // 75% win rate
-  const result = gain ? 0.03 : -0.015; // 3% gain ou 1.5% loss
-  const profit = balance * result;
+  const stop = direction === 'LONG'
+    ? entryPrice * 0.985
+    : entryPrice * 1.015;
+  const target = direction === 'LONG'
+    ? entryPrice * 1.03
+    : entryPrice * 0.97;
 
-  balance += profit;
-  performance.push({
-    date: new Date().toISOString().slice(0, 10),
-    profit: parseFloat(profit.toFixed(2))
-  });
-
-  return {
-    pair,
+  openPositions.push({
+    symbol,
+    entryPrice,
     direction,
-    entryPrice: parseFloat(entryPrice.toFixed(2)),
-    result: gain ? 'GAIN' : 'LOSS',
-    profit: parseFloat(profit.toFixed(2)),
-    timestamp: new Date().toISOString(),
-  };
+    stop,
+    target,
+    timestamp: Date.now()
+  });
+};
+
+const checkPositions = async () => {
+  const now = Date.now();
+  const closedTrades = [];
+
+  for (let i = openPositions.length - 1; i >= 0; i--) {
+    const pos = openPositions[i];
+    const currentPrice = await getCurrentPrice(pos.symbol);
+    let result = null;
+
+    if (
+      (pos.direction === 'LONG' && currentPrice >= pos.target) ||
+      (pos.direction === 'SHORT' && currentPrice <= pos.target)
+    ) {
+      result = 'GAIN';
+    } else if (
+      (pos.direction === 'LONG' && currentPrice <= pos.stop) ||
+      (pos.direction === 'SHORT' && currentPrice >= pos.stop)
+    ) {
+      result = 'LOSS';
+    }
+
+    if (result) {
+      const profit = result === 'GAIN'
+        ? balance * 0.03
+        : -balance * 0.015;
+
+      balance += profit;
+      const trade = {
+        ...pos,
+        exitPrice: currentPrice,
+        result,
+        profit: parseFloat(profit.toFixed(2)),
+        timestamp: new Date().toISOString()
+      };
+      trades.push(trade);
+      closedTrades.push(trade);
+      openPositions.splice(i, 1);
+    }
+  }
+
+  if (closedTrades.length > 0) {
+    fs.writeFileSync(path, JSON.stringify(trades, null, 2));
+  }
 };
 
 const simulate = async () => {
   if (!running) return;
 
-  try {
-    const res = await axios.get('https://api.binance.com/api/v3/ticker/24hr');
-    const topPairs = res.data
-      .filter(p => p.symbol.endsWith('USDT'))
-      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-      .slice(0, 5);
+  loadConfig();
 
-    pairs = topPairs.map(p => p.symbol);
-
-    for (const p of pairs) {
-      const trade = generateRandomTrade(p.symbol);
-      trades.push(trade);
+  if (openPositions.length < config.maxSimultaneousTrades) {
+    const topPairs = await fetchTopPairs();
+    for (let pair of topPairs) {
+      if (openPositions.length < config.maxSimultaneousTrades) {
+        await openTrade(pair);
+      } else break;
     }
-
-  } catch (err) {
-    console.error('Erro na simulação:', err.message);
   }
 
-  setTimeout(simulate, 5000); // Repetir a cada 5 segundos
+  await checkPositions();
+  setTimeout(simulate, 5000);
 };
 
 module.exports = {
   start: () => {
     running = true;
+    loadConfig();
+    trades = [];
+    openPositions = [];
     simulate();
   },
   stop: () => {
@@ -64,14 +130,13 @@ module.exports = {
   },
   getStatus: () => ({
     running,
-    pairs,
-    openPositions: 0,
+    openPositions: openPositions.length,
   }),
   getTrades: () => trades,
-  getPerformance: () => performance,
   reset: () => {
     trades = [];
-    performance = [];
-    balance = 1000;
+    openPositions = [];
+    balance = config.initialBalance;
+    fs.writeFileSync(path, JSON.stringify([], null, 2));
   }
 };

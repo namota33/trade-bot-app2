@@ -1,7 +1,13 @@
 {
-    "rewrites": [
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
         {
-             "source" : "/(.*)", "destination": "/"
+          "key": "Content-Security-Policy",
+          "value": "script-src 'self' 'unsafe-eval';"
         }
-    ]
+      ]
+    }
+  ]
 }
