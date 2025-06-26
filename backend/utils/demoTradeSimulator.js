@@ -1,142 +1,101 @@
-// utils/demoTradeSimulator.js
-const axios = require('axios');
 const fs = require('fs');
-const path = './data/trades.json';
+const axios = require('axios');
+const configPath = './config.json';
 
 let running = false;
+let pairs = [];
 let trades = [];
+let performance = [];
 let balance = 1000;
-let config = { initialBalance: 1000, maxSimultaneousTrades: 1 };
-let openPositions = [];
+let openPositions = 0;
+let maxSimultaneousTrades = 1;
 
-const loadConfig = () => {
+// Carrega configuração inicial
+function loadConfig() {
   try {
-    const data = fs.readFileSync('./config.json', 'utf8');
-    config = JSON.parse(data);
-    balance = config.initialBalance;
-  } catch {
-    config = { initialBalance: 1000, maxSimultaneousTrades: 1 };
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    balance = config.initialBalance || 1000;
+    maxSimultaneousTrades = config.maxSimultaneousTrades || 1;
+  } catch (err) {
+    console.error("Erro ao carregar config:", err.message);
     balance = 1000;
+    maxSimultaneousTrades = 1;
   }
-};
+}
 
-const fetchTopPairs = async () => {
-  const res = await axios.get('https://api.binance.com/api/v3/ticker/24hr');
-  return res.data
-    .filter(p => p.symbol.endsWith('USDT'))
-    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-    .slice(0, 10)
-    .map(p => p.symbol);
-};
+function saveTrades() {
+  fs.writeFileSync('./data/trades.json', JSON.stringify(trades, null, 2));
+}
 
-const getCurrentPrice = async (symbol) => {
-  const res = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-  return parseFloat(res.data.price);
-};
-
-const openTrade = async (symbol) => {
-  const entryPrice = await getCurrentPrice(symbol);
+// Simula trade com 80% de chance de ganho
+function simulateTrade(pair) {
+  const entryPrice = Math.random() * 100 + 10;
   const direction = Math.random() > 0.5 ? 'LONG' : 'SHORT';
-  const stop = direction === 'LONG'
-    ? entryPrice * 0.985
-    : entryPrice * 1.015;
-  const target = direction === 'LONG'
-    ? entryPrice * 1.03
-    : entryPrice * 0.97;
+  const gain = Math.random() < 0.8;
+  const result = gain ? 0.03 : -0.015;
+  const profit = balance * result;
 
-  openPositions.push({
-    symbol,
-    entryPrice,
+  balance += profit;
+  openPositions++;
+
+  const trade = {
+    pair,
     direction,
-    stop,
-    target,
-    timestamp: Date.now()
+    entryPrice: parseFloat(entryPrice.toFixed(2)),
+    result: gain ? 'GAIN' : 'LOSS',
+    profit: parseFloat(profit.toFixed(2)),
+    timestamp: new Date().toISOString()
+  };
+
+  trades.push(trade);
+  performance.push({
+    date: new Date().toISOString().slice(0, 10),
+    profit: parseFloat(profit.toFixed(2))
   });
-};
 
-const checkPositions = async () => {
-  const now = Date.now();
-  const closedTrades = [];
+  saveTrades();
+}
 
-  for (let i = openPositions.length - 1; i >= 0; i--) {
-    const pos = openPositions[i];
-    const currentPrice = await getCurrentPrice(pos.symbol);
-    let result = null;
-
-    if (
-      (pos.direction === 'LONG' && currentPrice >= pos.target) ||
-      (pos.direction === 'SHORT' && currentPrice <= pos.target)
-    ) {
-      result = 'GAIN';
-    } else if (
-      (pos.direction === 'LONG' && currentPrice <= pos.stop) ||
-      (pos.direction === 'SHORT' && currentPrice >= pos.stop)
-    ) {
-      result = 'LOSS';
-    }
-
-    if (result) {
-      const profit = result === 'GAIN'
-        ? balance * 0.03
-        : -balance * 0.015;
-
-      balance += profit;
-      const trade = {
-        ...pos,
-        exitPrice: currentPrice,
-        result,
-        profit: parseFloat(profit.toFixed(2)),
-        timestamp: new Date().toISOString()
-      };
-      trades.push(trade);
-      closedTrades.push(trade);
-      openPositions.splice(i, 1);
-    }
-  }
-
-  if (closedTrades.length > 0) {
-    fs.writeFileSync(path, JSON.stringify(trades, null, 2));
-  }
-};
-
-const simulate = async () => {
+function loop() {
   if (!running) return;
 
   loadConfig();
 
-  if (openPositions.length < config.maxSimultaneousTrades) {
-    const topPairs = await fetchTopPairs();
-    for (let pair of topPairs) {
-      if (openPositions.length < config.maxSimultaneousTrades) {
-        await openTrade(pair);
-      } else break;
-    }
+  // Simula no máximo "maxSimultaneousTrades" por ciclo
+  const selected = pairs.slice(0, maxSimultaneousTrades);
+
+  for (const p of selected) {
+    simulateTrade(p);
   }
 
-  await checkPositions();
-  setTimeout(simulate, 5000);
-};
+  setTimeout(loop, 5000); // repete a cada 5 segundos
+}
 
 module.exports = {
   start: () => {
     running = true;
     loadConfig();
     trades = [];
-    openPositions = [];
-    simulate();
+    performance = [];
+    loop();
   },
   stop: () => {
     running = false;
   },
+  setPairs: (newPairs) => {
+    pairs = newPairs;
+  },
   getStatus: () => ({
     running,
-    openPositions: openPositions.length,
+    pairs,
+    openPositions
   }),
   getTrades: () => trades,
+  getPerformance: () => performance,
   reset: () => {
     trades = [];
-    openPositions = [];
-    balance = config.initialBalance;
-    fs.writeFileSync(path, JSON.stringify([], null, 2));
+    performance = [];
+    balance = 1000;
+    openPositions = 0;
   }
 };

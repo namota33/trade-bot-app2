@@ -1,7 +1,6 @@
-// backend/routes/status.js
 const express = require('express');
 const router = express.Router();
-const binanceScanner = require('../utils/binanceScanner');
+const getTopPairs = require('../utils/marketScanner'); // novo scanner CoinGecko
 const demoSimulator = require('../utils/demoTradeSimulator');
 
 let running = false;
@@ -15,21 +14,22 @@ router.get('/', (req, res) => {
 router.post('/start', async (req, res) => {
   try {
     running = true;
-    pairs = await binanceScanner(); // coleta os pares com maior volume
+    pairs = await getTopPairs(); // dados da CoinGecko
     openPositions = 0;
-    demoSimulator.start(); // inicia o simulador
-    res.json({ success: true, message: 'Robô iniciado', pairs });
+    demoSimulator.setPairs(pairs); // envia para o simulador
+    demoSimulator.start(); // inicia
+    res.json({ success: true, message: 'Robô iniciado com dados reais do mercado', pairs });
   } catch (error) {
-    console.error('Erro ao iniciar robô:', error);
+    console.error('Erro ao iniciar robô:', error.message);
     res.status(500).json({ error: 'Falha ao iniciar robô' });
   }
 });
 
 router.post('/stop', (req, res) => {
   running = false;
+  demoSimulator.stop();
   pairs = [];
   openPositions = 0;
-  demoSimulator.stop(); // para o simulador
   res.json({ success: true, message: 'Robô parado' });
 });
 
