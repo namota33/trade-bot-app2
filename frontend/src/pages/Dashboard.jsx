@@ -1,104 +1,138 @@
+// src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import StatusPanel from '../components/StatusPanel';
-import ControlPanel from '../components/ControlPanel';
-import ConfigForm from '../components/ConfigForm';
 import TradeTable from '../components/TradeTable';
 import PerformanceChart from '../components/PerformanceChart';
 
-function Dashboard() {
-  const backendURL = import.meta.env.VITE_BACKEND_URL;
-
+function Dashboard({ backendURL }) {
+  const [mode, setMode] = useState(null);
   const [status, setStatus] = useState(null);
+  const [config, setConfig] = useState({ initialBalance: 1000, maxSimultaneousTrades: 1 });
   const [trades, setTrades] = useState([]);
-  const [config, setConfig] = useState({});
   const [performance, setPerformance] = useState([]);
-  const [mode, setMode] = useState('demo'); // 'demo' ou 'real'
   const [loading, setLoading] = useState(false);
-  const [running, setRunning] = useState(false); // novo estado para saber se o robô está ativo
 
-  const fetchAll = async () => {
-    try {
-      const [statusRes, tradesRes, configRes, perfRes] = await Promise.all([
-        axios.get(`${backendURL}/api/status`),
-        axios.get(`${backendURL}/api/trades`),
-        axios.get(`${backendURL}/api/config`),
-        axios.get(`${backendURL}/api/performance`)
-      ]);
-      setStatus(statusRes.data);
-      setRunning(statusRes.data.running); // pega status do robô
-      setTrades(tradesRes.data);
-      setConfig(configRes.data);
-      setPerformance(perfRes.data);
-    } catch (err) {
-      console.error("Erro ao buscar dados:", err.message);
-    }
-  };
-
+  // Carrega tudo no início
   useEffect(() => {
     fetchAll();
   }, []);
 
+  const fetchAll = async () => {
+    try {
+      const [modeRes, statusRes, configRes, tradesRes, perfRes] = await Promise.all([
+        axios.get(`${backendURL}/api/mode`),
+        axios.get(`${backendURL}/api/status`),
+        axios.get(`${backendURL}/api/config`),
+        axios.get(`${backendURL}/api/trades`),
+        axios.get(`${backendURL}/api/performance`),
+      ]);
+      setMode(modeRes.data.mode);
+      setStatus(statusRes.data);
+      setConfig(configRes.data);
+      setTrades(tradesRes.data);
+      setPerformance(perfRes.data);
+    } catch (err) {
+      console.error("Erro ao carregar dados:", err.message);
+    }
+  };
+
   const toggleMode = async () => {
     const newMode = mode === 'demo' ? 'real' : 'demo';
+    setLoading(true);
     try {
-      setLoading(true);
-      await axios.post(`${backendURL}/api/mode`, { type: newMode });
+      await axios.post(`${backendURL}/api/mode`, { mode: newMode });
       setMode(newMode);
-    } catch (error) {
-      console.error('Erro ao trocar modo:', error);
+    } catch (err) {
+      console.error("Erro ao trocar modo:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
   const toggleRobot = async () => {
+    if (!status) return;
+    const endpoint = status.running ? 'stop' : 'start';
+    setLoading(true);
     try {
-      setLoading(true);
-      const route = running ? 'stop' : 'start';
-      await axios.post(`${backendURL}/api/${route}`);
-      setRunning(!running);
+      await axios.post(`${backendURL}/api/status/${endpoint}`);
+      await fetchAll();
     } catch (err) {
-      console.error("Erro ao iniciar/parar robô:", err);
+      console.error("Erro ao iniciar/parar robô:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleConfigChange = (e) => {
+    const { name, value } = e.target;
+    setConfig((prev) => ({
+      ...prev,
+      [name]: parseFloat(value)
+    }));
+  };
+
+  const saveConfig = async () => {
+    try {
+      await axios.post(`${backendURL}/api/config`, config);
+      alert("Configurações salvas com sucesso!");
+    } catch (err) {
+      console.error("Erro ao salvar config:", err.message);
+    }
+  };
+
   return (
-    <div style={{ padding: 20 }}>
+    <div>
       <h1>Robô de Trade</h1>
 
-      {/* Alternar entre demo/real */}
-      <button onClick={toggleMode} disabled={loading} style={{
-        marginBottom: 10,
-        padding: '10px 20px',
-        backgroundColor: mode === 'demo' ? '#007bff' : '#28a745',
-        color: 'white',
-        border: 'none',
-        borderRadius: 5,
-        cursor: 'pointer'
-      }}>
-        Alternar para {mode === 'demo' ? 'REAL' : 'DEMO'}
-      </button>
+      {/* Modo de operação */}
+      <div>
+        <p><strong>Modo atual:</strong> {mode?.toUpperCase() || 'Carregando...'}</p>
+        <button onClick={toggleMode} disabled={loading}>
+          Alternar para {mode === 'demo' ? 'REAL' : 'DEMO'}
+        </button>
+      </div>
 
-      {/* Botão de start/stop */}
-      <button onClick={toggleRobot} disabled={loading} style={{
-        marginLeft: 10,
-        marginBottom: 15,
-        padding: '10px 20px',
-        backgroundColor: running ? '#dc3545' : '#ffc107',
-        color: 'white',
-        border: 'none',
-        borderRadius: 5,
-        cursor: 'pointer'
-      }}>
-        {running ? 'Parar Robô' : 'Iniciar Robô'}
-      </button>
+      <hr />
 
-      <StatusPanel status={status} />
-      <ControlPanel backendURL={backendURL} />
-      <ConfigForm backendURL={backendURL} config={config} />
+      {/* Botão de iniciar/parar */}
+      <div>
+        <p><strong>Status:</strong> {status?.running ? '🟢 Rodando' : '🔴 Parado'}</p>
+        <button onClick={toggleRobot} disabled={loading}>
+          {status?.running ? 'Parar Robô' : 'Iniciar Robô'}
+        </button>
+      </div>
+
+      <hr />
+
+      {/* Configuração inline */}
+      <div>
+        <h3>Configuração</h3>
+        <label>
+          Saldo inicial fictício:
+          <input
+            type="number"
+            name="initialBalance"
+            value={config.initialBalance}
+            onChange={handleConfigChange}
+          />
+        </label>
+        <br />
+        <label>
+          Entradas simultâneas:
+          <input
+            type="number"
+            name="maxSimultaneousTrades"
+            value={config.maxSimultaneousTrades}
+            onChange={handleConfigChange}
+          />
+        </label>
+        <br />
+        <button onClick={saveConfig}>Salvar Configuração</button>
+      </div>
+
+      <hr />
+
+      {/* Tabela de trades e gráfico */}
       <PerformanceChart data={performance} />
       <TradeTable trades={trades} />
     </div>

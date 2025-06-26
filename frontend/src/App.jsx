@@ -1,23 +1,24 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Home from './pages/Home';
+// src/App.jsx
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
-import ConfigForm from './components/ConfigForm';
-import Notfound from './pages/Notfound';
 
 function App() {
+  const backendURL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
   return (
-    <BrowserRouter>
-      <Navbar />
-      <div style={{ padding: 20 }}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/config" element={<ConfigForm />} />
-          <Route path="*" element={<Notfound />} />
-        </Routes>
+    <Router>
+      <div>
+        <nav style={{ backgroundColor: '#111', padding: '10px' }}>
+          <Link to="/" style={{ color: 'white', marginRight: '20px' }}>Dashboard</Link>
+        </nav>
+        <div style={{ padding: '20px' }}>
+          <Routes>
+            <Route path="/" element={<Dashboard backendURL={backendURL} />} />
+          </Routes>
+        </div>
       </div>
-    </BrowserRouter>
+    </Router>
   );
 }
 

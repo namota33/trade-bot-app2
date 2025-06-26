@@ -3,12 +3,11 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function ControlPanel({ backendURL }) {
-  const [mode, setMode] = useState(null); // 'demo' ou 'real'
-  const [status, setStatus] = useState(null); // status do robô
+  const [mode, setMode] = useState(null);
+  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [initialBalance, setInitialBalance] = useState('');
-  const [maxEntries, setMaxEntries] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [config, setConfig] = useState({ initialBalance: 1000, maxSimultaneousTrades: 1 });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchMode();
@@ -21,7 +20,7 @@ function ControlPanel({ backendURL }) {
       const res = await axios.get(`${backendURL}/api/mode`);
       setMode(res.data.mode);
     } catch (err) {
-      console.error("Erro ao buscar modo:", err);
+      console.error('Erro ao buscar modo:', err);
     }
   };
 
@@ -30,17 +29,16 @@ function ControlPanel({ backendURL }) {
       const res = await axios.get(`${backendURL}/api/status`);
       setStatus(res.data);
     } catch (err) {
-      console.error("Erro ao buscar status:", err);
+      console.error('Erro ao buscar status:', err);
     }
   };
 
   const fetchConfig = async () => {
     try {
       const res = await axios.get(`${backendURL}/api/config`);
-      setInitialBalance(res.data.initialBalance || '');
-      setMaxEntries(res.data.maxSimultaneousEntries || '');
+      setConfig(res.data);
     } catch (err) {
-      console.error("Erro ao buscar config:", err);
+      console.error('Erro ao buscar config:', err);
     }
   };
 
@@ -72,27 +70,26 @@ function ControlPanel({ backendURL }) {
     }
   };
 
-  const saveConfig = async () => {
-    setLoading(true);
+  const handleSaveConfig = async () => {
+    setSaving(true);
     try {
       await axios.post(`${backendURL}/api/config`, {
-        initialBalance: parseFloat(initialBalance),
-        maxSimultaneousEntries: parseInt(maxEntries)
+        initialBalance: Number(config.initialBalance),
+        maxSimultaneousTrades: Number(config.maxSimultaneousTrades),
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      alert("Configurações salvas com sucesso.");
     } catch (err) {
-      console.error("Erro ao salvar configuração:", err);
+      console.error('Erro ao salvar configurações:', err);
+      alert("Erro ao salvar configurações.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
     <div>
-      <h3>Controle do Robô</h3>
+      <h2>Robô de Trade</h2>
 
-      {/* Alternância de modo */}
       {mode ? (
         <>
           <p><strong>Modo atual:</strong> {mode.toUpperCase()}</p>
@@ -106,10 +103,11 @@ function ControlPanel({ backendURL }) {
 
       <hr />
 
-      {/* Início/parada do robô */}
       {status ? (
         <>
-          <p><strong>Status do robô:</strong> {status.running ? '🟢 Rodando' : '🔴 Parado'}</p>
+          <p><strong>Status:</strong> {status.running ? '🟢 Rodando' : '🔴 Parado'}</p>
+          <p><strong>Pares:</strong> {status.pairs?.join(', ') || 'Nenhum par'}</p>
+          <p><strong>Posições abertas:</strong> {status.openPositions || 0}</p>
           <button onClick={toggleRobot} disabled={loading}>
             {status.running ? 'Parar Robô' : 'Iniciar Robô'}
           </button>
@@ -120,26 +118,24 @@ function ControlPanel({ backendURL }) {
 
       <hr />
 
-      {/* Configurações iniciais */}
-      <div>
-        <h4>Configuração do Modo DEMO</h4>
-        <label>Saldo Inicial Fictício: </label>
-        <input
-          type="number"
-          value={initialBalance}
-          onChange={e => setInitialBalance(e.target.value)}
-        /> <br />
-        <label>Entradas Simultâneas: </label>
-        <input
-          type="number"
-          value={maxEntries}
-          onChange={e => setMaxEntries(e.target.value)}
-        /> <br />
-        <button onClick={saveConfig} disabled={loading}>
-          Salvar Configurações
-        </button>
-        {saved && <p style={{ color: 'green' }}>Configurações salvas!</p>}
-      </div>
+      <h3>Configurações (Modo DEMO)</h3>
+      <label>Saldo Inicial Fictício (USDT):</label><br />
+      <input
+        type="number"
+        value={config.initialBalance}
+        onChange={e => setConfig({ ...config, initialBalance: e.target.value })}
+      /><br /><br />
+
+      <label>Entradas Simultâneas:</label><br />
+      <input
+        type="number"
+        value={config.maxSimultaneousTrades}
+        onChange={e => setConfig({ ...config, maxSimultaneousTrades: e.target.value })}
+      /><br /><br />
+
+      <button onClick={handleSaveConfig} disabled={saving}>
+        {saving ? 'Salvando...' : 'Salvar Configurações'}
+      </button>
     </div>
   );
 }
