@@ -1,15 +1,19 @@
+// src/components/ControlPanel.jsx
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function ControlPanel({ backendURL }) {
   const [mode, setMode] = useState(null); // 'demo' ou 'real'
-  const [status, setStatus] = useState(null); // { running: true/false, ... }
+  const [status, setStatus] = useState(null); // status do robô
   const [loading, setLoading] = useState(false);
+  const [initialBalance, setInitialBalance] = useState('');
+  const [maxEntries, setMaxEntries] = useState('');
+  const [saved, setSaved] = useState(false);
 
-  // Carrega o modo e o status atual ao montar
   useEffect(() => {
     fetchMode();
     fetchStatus();
+    fetchConfig();
   }, [backendURL]);
 
   const fetchMode = async () => {
@@ -27,6 +31,16 @@ function ControlPanel({ backendURL }) {
       setStatus(res.data);
     } catch (err) {
       console.error("Erro ao buscar status:", err);
+    }
+  };
+
+  const fetchConfig = async () => {
+    try {
+      const res = await axios.get(`${backendURL}/api/config`);
+      setInitialBalance(res.data.initialBalance || '');
+      setMaxEntries(res.data.maxSimultaneousEntries || '');
+    } catch (err) {
+      console.error("Erro ao buscar config:", err);
     }
   };
 
@@ -50,7 +64,7 @@ function ControlPanel({ backendURL }) {
     try {
       const endpoint = status.running ? 'stop' : 'start';
       await axios.post(`${backendURL}/api/status/${endpoint}`);
-      await fetchStatus(); // Atualiza o status após ação
+      await fetchStatus();
     } catch (err) {
       console.error('Erro ao alternar robô:', err);
     } finally {
@@ -58,10 +72,27 @@ function ControlPanel({ backendURL }) {
     }
   };
 
+  const saveConfig = async () => {
+    setLoading(true);
+    try {
+      await axios.post(`${backendURL}/api/config`, {
+        initialBalance: parseFloat(initialBalance),
+        maxSimultaneousEntries: parseInt(maxEntries)
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error("Erro ao salvar configuração:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
-      <h3>Controle</h3>
+      <h3>Controle do Robô</h3>
 
+      {/* Alternância de modo */}
       {mode ? (
         <>
           <p><strong>Modo atual:</strong> {mode.toUpperCase()}</p>
@@ -75,6 +106,7 @@ function ControlPanel({ backendURL }) {
 
       <hr />
 
+      {/* Início/parada do robô */}
       {status ? (
         <>
           <p><strong>Status do robô:</strong> {status.running ? '🟢 Rodando' : '🔴 Parado'}</p>
@@ -85,6 +117,29 @@ function ControlPanel({ backendURL }) {
       ) : (
         <p>Carregando status do robô...</p>
       )}
+
+      <hr />
+
+      {/* Configurações iniciais */}
+      <div>
+        <h4>Configuração do Modo DEMO</h4>
+        <label>Saldo Inicial Fictício: </label>
+        <input
+          type="number"
+          value={initialBalance}
+          onChange={e => setInitialBalance(e.target.value)}
+        /> <br />
+        <label>Entradas Simultâneas: </label>
+        <input
+          type="number"
+          value={maxEntries}
+          onChange={e => setMaxEntries(e.target.value)}
+        /> <br />
+        <button onClick={saveConfig} disabled={loading}>
+          Salvar Configurações
+        </button>
+        {saved && <p style={{ color: 'green' }}>Configurações salvas!</p>}
+      </div>
     </div>
   );
 }

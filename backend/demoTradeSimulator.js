@@ -21,4 +21,6 @@ for (const p of pairs) {
 
 setTimeout(simulate, 5000); // executa a cada 5 segundos };
 
-module.exports = { start: () => { running = true; simulate(); }, stop: () => { running = false; }, getStatus: () => ({ running, pairs, openPositions: 0, }), getTrades: () => trades, getPerformance: () => performance, reset: () => { trades = []; performance = []; balance = 1000; }} };
+module.exports = { start: () => { running = true; simulate(); }, stop: () => { running = false; }, getStatus: () => ({ running, pairs, openPositions: 0, }), getTrades: () => trades, getPerformance: () => performance, reset: () => { trades = []; performance = []; balance = 1000; } 
+   }
+};
