@@ -95,15 +95,29 @@ function Dashboard({ backendURL }) {
 
       <hr />
 
-      {/* Botão de iniciar/parar */}
-      <div>
-        <p><strong>Status:</strong> {status?.running ? '🟢 Rodando' : '🔴 Parado'}</p>
-        <button onClick={toggleRobot} disabled={loading}>
-          {status?.running ? 'Parar Robô' : 'Iniciar Robô'}
-        </button>
-      </div>
+{/* Botão de iniciar/parar */}
+<div>
+  <p><strong>Status:</strong> {status?.running ? '🟢 Rodando' : '🔴 Parado'}</p>
+  <button onClick={toggleRobot} disabled={loading}>
+    {status?.running ? 'Parar Robô' : 'Iniciar Robô'}
+  </button>
+</div>
 
-      <hr />
+{/* NOVO BLOCO: Pares que estão sendo varridos */}
+{status?.running && status?.pairs?.length > 0 && (
+  <div style={{ marginTop: '10px' }}>
+    <strong>Moedas em varredura:</strong>
+    <ul>
+      {status.pairs.map((pair, index) => (
+        <li key={index} style={{ color: 'gray', fontSize: '0.95em' }}>
+          {pair}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+<hr />
 
       {/* Configuração inline */}
       <div>
