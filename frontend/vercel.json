@@ -1,13 +1,8 @@
 {
-  "headers": [
+  "rewrites": [
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "script-src 'self' 'unsafe-eval';"
-        }
-      ]
+      "source": "/api/:path*",
+      "destination": "https://trade-bot-app2.onrender.com/api/:path*"
     }
   ]
 }
