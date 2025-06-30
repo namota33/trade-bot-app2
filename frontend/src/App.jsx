@@ -4,7 +4,12 @@ import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 
 function App() {
-  const backendURL = import.meta.env.VITE_BACKEND_URL || 'https://trade-bot-app2.onrender.com';
+  // Se estiver no ambiente local (sem proxy), usa URL do backend real
+  // Caso contrário (produção), usa '/api' para ativar o proxy da Vercel
+  const isLocalhost = window.location.hostname === 'localhost';
+  const backendURL = isLocalhost
+    ? import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+    : '/api';
 
   return (
     <Router>
