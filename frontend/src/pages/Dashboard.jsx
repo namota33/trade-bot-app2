@@ -11,10 +11,9 @@ function Dashboard({ backendURL }) {
   const [performance, setPerformance] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Carrega tudo no início
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 10000); // atualiza a cada 10s
+    const interval = setInterval(fetchAll, 5000); // atualiza a cada 5s
     return () => clearInterval(interval);
   }, []);
 
@@ -95,29 +94,27 @@ function Dashboard({ backendURL }) {
 
       <hr />
 
-{/* Botão de iniciar/parar */}
-<div>
-  <p><strong>Status:</strong> {status?.running ? '🟢 Rodando' : '🔴 Parado'}</p>
-  <button onClick={toggleRobot} disabled={loading}>
-    {status?.running ? 'Parar Robô' : 'Iniciar Robô'}
-  </button>
-</div>
+      {/* Botão de iniciar/parar */}
+      <div>
+        <p><strong>Status:</strong> {status?.running ? '🟢 Rodando' : '🔴 Parado'}</p>
+        <button onClick={toggleRobot} disabled={loading}>
+          {status?.running ? 'Parar Robô' : 'Iniciar Robô'}
+        </button>
+      </div>
 
-{/* NOVO BLOCO: Pares que estão sendo varridos */}
-{status?.running && status?.pairs?.length > 0 && (
-  <div style={{ marginTop: '10px' }}>
-    <strong>Moedas em varredura:</strong>
-    <ul>
-      {status.pairs.map((pair, index) => (
-        <li key={index} style={{ color: 'gray', fontSize: '0.95em' }}>
-          {pair}
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
+      {/* Moedas sendo varridas */}
+      {status?.running && status?.pairs?.length > 0 && (
+        <div style={{ marginTop: '10px' }}>
+          <strong>Moedas em varredura:</strong>
+          <ul style={{ columns: 2, fontSize: '0.95em', color: '#555' }}>
+            {status.pairs.map((pair, i) => (
+              <li key={i}>{pair}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-<hr />
+      <hr />
 
       {/* Configuração inline */}
       <div>
@@ -147,15 +144,13 @@ function Dashboard({ backendURL }) {
 
       <hr />
 
-      {/* Gráfico + Aviso + Tabela */}
-      <PerformanceChart data={performance} />
-
+      {/* Tabela de trades e gráfico */}
       {trades.length === 0 && (
         <p style={{ fontStyle: 'italic', color: 'gray' }}>
           ⏳ Aguardando condições perfeitas para entrada...
         </p>
       )}
-
+      <PerformanceChart data={performance} />
       <TradeTable trades={trades} />
     </div>
   );
