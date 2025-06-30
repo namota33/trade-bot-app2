@@ -1,4 +1,3 @@
-// src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import TradeTable from '../components/TradeTable';
@@ -15,6 +14,8 @@ function Dashboard({ backendURL }) {
   // Carrega tudo no início
   useEffect(() => {
     fetchAll();
+    const interval = setInterval(fetchAll, 10000); // atualiza a cada 10s
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAll = async () => {
@@ -132,8 +133,15 @@ function Dashboard({ backendURL }) {
 
       <hr />
 
-      {/* Tabela de trades e gráfico */}
+      {/* Gráfico + Aviso + Tabela */}
       <PerformanceChart data={performance} />
+
+      {trades.length === 0 && (
+        <p style={{ fontStyle: 'italic', color: 'gray' }}>
+          ⏳ Aguardando condições perfeitas para entrada...
+        </p>
+      )}
+
       <TradeTable trades={trades} />
     </div>
   );
