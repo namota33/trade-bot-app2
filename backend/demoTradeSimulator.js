@@ -1,141 +1,119 @@
+// backend/utils/demoTradeSimulator.js
 const axios = require('axios');
+const fs = require('fs');
+const configPath = './config.json';
+
 let running = false;
+let pairs = [];
 let trades = [];
 let performance = [];
 let balance = 1000;
 let openPositions = 0;
-let pairs = [];
+let maxSimultaneousTrades = 1;
 
-const getCandles = async (symbol) => {
+function loadConfig() {
   try {
-    const res = await axios.get(`https://api.binance.com/api/v3/klines`, {
-      params: {
-        symbol,
-        interval: '5m',
-        limit: 100
-      }
-    });
-    return res.data.map(candle => ({
-      close: parseFloat(candle[4]),
-      volume: parseFloat(candle[5])
-    }));
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    balance = config.initialBalance || 1000;
+    maxSimultaneousTrades = config.maxSimultaneousTrades || 1;
   } catch (err) {
-    console.error(`Erro ao buscar candles de ${symbol}:`, err.message);
-    return null;
+    console.error("Erro ao carregar config:", err.message);
+    balance = 1000;
+    maxSimultaneousTrades = 1;
   }
-};
+}
 
-const calculateEMA = (data, period) => {
-  const k = 2 / (period + 1);
-  let emaArray = [];
-  let ema = data.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+function saveTrades() {
+  fs.writeFileSync('./data/trades.json', JSON.stringify(trades, null, 2));
+}
 
-  emaArray[period - 1] = ema;
+function calculateRSI(closes) {
+  if (closes.length < 4) return 50;
+  const deltas = closes.slice(1).map((c, i) => c - closes[i]);
+  const gains = deltas.filter(d => d > 0).reduce((a, b) => a + b, 0) / 3;
+  const losses = deltas.filter(d => d < 0).reduce((a, b) => a + b, 0) / -3;
+  if (losses === 0) return 100;
+  const rs = gains / losses;
+  return 100 - 100 / (1 + rs);
+}
 
-  for (let i = period; i < data.length; i++) {
-    ema = data[i] * k + ema * (1 - k);
-    emaArray[i] = ema;
-  }
-
-  return emaArray;
-};
-
-const shouldEnterTrade = async (symbol) => {
-  const candles = await getCandles(symbol);
-  if (!candles || candles.length < 50) return false;
-
-  const closes = candles.map(c => c.close);
-  const volumes = candles.map(c => c.volume);
-
-  const rsiSource = closes.slice(-14);
-  const gains = rsiSource.map((v, i) => (i === 0 ? 0 : Math.max(v - rsiSource[i - 1], 0)));
-  const losses = rsiSource.map((v, i) => (i === 0 ? 0 : Math.max(rsiSource[i - 1] - v, 0)));
-  const avgGain = gains.reduce((a, b) => a + b, 0) / 14;
-  const avgLoss = losses.reduce((a, b) => a + b, 0) / 14;
-  const rs = avgGain / (avgLoss || 1);
-  const rsi = 100 - (100 / (1 + rs));
-
-  const ema50 = calculateEMA(closes, 50).at(-1);
-  const ema200 = calculateEMA(closes, 200).at(-1);
-  const lastClose = closes.at(-1);
-
-  const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
-  const lastVolume = volumes.at(-1);
-
-  const valid = rsi < 30 && ema50 > ema200 && lastVolume > avgVolume;
-
-  if (valid) {
-    console.log(`✅ ENTRADA ENCONTRADA: ${symbol} | RSI: ${rsi.toFixed(2)} | EMA50 > EMA200 | VOL OK`);
-  } else {
-    console.log(`❌ SEM ENTRADA: ${symbol} | RSI: ${rsi.toFixed(2)}, EMA50=${ema50}, EMA200=${ema200}, VOL=${lastVolume}`);
-  }
-
-  return valid;
-};
-
-const generateRandomTrade = (pair) => {
-  const entryPrice = Math.random() * 100 + 10;
-  const direction = Math.random() > 0.5 ? 'LONG' : 'SHORT';
-  const gain = Math.random() < 0.75;
-  const result = gain ? 0.03 : -0.015;
-  const profit = balance * result;
-
-  balance += profit;
-  performance.push({
-    date: new Date().toISOString().slice(0, 10),
-    profit: parseFloat(profit.toFixed(2))
-  });
-
+function calculateBollinger(closes) {
+  const avg = closes.reduce((a, b) => a + b) / closes.length;
+  const stdDev = Math.sqrt(closes.map(c => (c - avg) ** 2).reduce((a, b) => a + b) / closes.length);
   return {
-    pair,
-    direction,
-    entryPrice: parseFloat(entryPrice.toFixed(2)),
-    result: gain ? 'GAIN' : 'LOSS',
-    profit: parseFloat(profit.toFixed(2)),
-    timestamp: new Date().toISOString(),
+    upper: avg + 2 * stdDev,
+    lower: avg - 2 * stdDev,
+    middle: avg
   };
-};
+}
 
-const simulate = async () => {
-  if (!running) return;
-
+async function analyzeAndTrade(pair) {
   try {
-    const res = await axios.get('https://api.binance.com/api/v3/ticker/24hr');
-    const topPairs = res.data
-      .filter(p => p.symbol.endsWith('USDT'))
-      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-      .slice(0, 25); // agora top 25
+    const { data } = await axios.get(
+      `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=1m&limit=20`
+    );
+    const closes = data.map(c => parseFloat(c[4]));
+    const rsi = calculateRSI(closes);
+    const bb = calculateBollinger(closes);
+    const lastClose = closes[closes.length - 1];
 
-    pairs = topPairs.map(p => p.symbol);
+    const entryCondition = rsi < 10 && lastClose < bb.lower;
 
-    for (const symbol of pairs) {
-      const valid = await shouldEnterTrade(symbol);
-      if (valid) {
-        const trade = generateRandomTrade(symbol);
-        trades.push(trade);
-        console.log(`💰 Trade simulado em ${symbol}: ${trade.result} | Lucro: ${trade.profit}`);
-      }
+    if (entryCondition && openPositions < maxSimultaneousTrades) {
+      const gain = Math.random() < 0.75;
+      const result = gain ? 0.03 : -0.015;
+      const profit = balance * result;
+      balance += profit;
+      openPositions++;
+
+      const trade = {
+        pair,
+        direction: 'LONG',
+        entryPrice: parseFloat(lastClose.toFixed(4)),
+        result: gain ? 'GAIN' : 'LOSS',
+        profit: parseFloat(profit.toFixed(2)),
+        timestamp: new Date().toISOString()
+      };
+
+      trades.push(trade);
+      performance.push({
+        date: new Date().toISOString().slice(0, 10),
+        profit: parseFloat(profit.toFixed(2))
+      });
+
+      saveTrades();
     }
-
   } catch (err) {
-    console.error('Erro na simulação:', err.message);
+    console.error(`Erro ao analisar ${pair}:`, err.message);
   }
+}
 
-  setTimeout(simulate, 10000); // a cada 10s
-};
+function loop() {
+  if (!running) return;
+  loadConfig();
+  const selected = pairs.slice(0, 25);
+  selected.forEach(analyzeAndTrade);
+  setTimeout(loop, 60000); // 1 minuto
+}
 
 module.exports = {
   start: () => {
     running = true;
-    simulate();
+    loadConfig();
+    trades = [];
+    performance = [];
+    loop();
   },
   stop: () => {
     running = false;
   },
+  setPairs: (newPairs) => {
+    pairs = newPairs;
+  },
   getStatus: () => ({
     running,
     pairs,
-    openPositions: 0,
+    openPositions
   }),
   getTrades: () => trades,
   getPerformance: () => performance,
@@ -143,5 +121,6 @@ module.exports = {
     trades = [];
     performance = [];
     balance = 1000;
+    openPositions = 0;
   }
 };
