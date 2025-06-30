@@ -1,21 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const getTopPairs = require('../utils/marketScanner'); // agora com Binance
+const getTopPairs = require('../utils/marketScanner');
 const demoSimulator = require('../utils/demoTradeSimulator');
 
 let running = false;
-let pairs = [];
-let openPositions = 0;
 
 router.get('/', (req, res) => {
-  res.json({ running, pairs, openPositions });
+  const status = demoSimulator.getStatus(); // ✅ agora envia os pares ativos
+  res.json(status);
 });
 
 router.post('/start', async (req, res) => {
   try {
     running = true;
-    pairs = await getTopPairs(); // dados da Binance
-    openPositions = 0;
+    const pairs = await getTopPairs(); // top 25 moedas
     demoSimulator.setPairs(pairs);
     demoSimulator.start();
     res.json({ success: true, message: 'Robô iniciado com dados reais da Binance', pairs });
@@ -28,8 +26,6 @@ router.post('/start', async (req, res) => {
 router.post('/stop', (req, res) => {
   running = false;
   demoSimulator.stop();
-  pairs = [];
-  openPositions = 0;
   res.json({ success: true, message: 'Robô parado' });
 });
 
