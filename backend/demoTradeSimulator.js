@@ -1,71 +1,96 @@
 // backend/utils/demoTradeSimulator.js
+const fs = require('fs');
 const axios = require('axios');
+const configPath = './config.json';
+
 let running = false;
 let trades = [];
 let performance = [];
-let balance = 1000; // Saldo inicial fictício
+let balance = 1000;
 let openPositions = 0;
+let maxSimultaneousTrades = 1;
 let pairs = [];
 
-const generateRandomTrade = (pair) => {
+// Carrega config inicial
+function loadConfig() {
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    balance = config.initialBalance || 1000;
+    maxSimultaneousTrades = config.maxSimultaneousTrades || 1;
+  } catch (err) {
+    console.error("Erro ao carregar config:", err.message);
+    balance = 1000;
+    maxSimultaneousTrades = 1;
+  }
+}
+
+// Salva trades em arquivo para exibir no frontend
+function saveTrades() {
+  fs.writeFileSync('./data/trades.json', JSON.stringify(trades, null, 2));
+}
+
+// Simula um trade com base no setup
+function simulateTrade(pair) {
   const entryPrice = Math.random() * 100 + 10;
   const direction = Math.random() > 0.5 ? 'LONG' : 'SHORT';
-  const gain = Math.random() < 0.75; // 75% win rate
-  const result = gain ? 0.03 : -0.015; // 3% gain ou 1.5% loss
+  const win = Math.random() < 0.75; // 75% win rate
+  const result = win ? 0.03 : -0.015;
   const profit = balance * result;
 
   balance += profit;
+  openPositions++;
+
+  const trade = {
+    pair,
+    direction,
+    entryPrice: parseFloat(entryPrice.toFixed(2)),
+    result: win ? 'GAIN' : 'LOSS',
+    profit: parseFloat(profit.toFixed(2)),
+    timestamp: new Date().toISOString()
+  };
+
+  trades.push(trade);
+
   performance.push({
     date: new Date().toISOString().slice(0, 10),
     profit: parseFloat(profit.toFixed(2))
   });
 
-  return {
-    pair,
-    direction,
-    entryPrice: parseFloat(entryPrice.toFixed(2)),
-    result: gain ? 'GAIN' : 'LOSS',
-    profit: parseFloat(profit.toFixed(2)),
-    timestamp: new Date().toISOString(),
-  };
-};
+  saveTrades();
+}
 
-const simulate = async () => {
+function loop() {
   if (!running) return;
 
-  try {
-    const res = await axios.get('https://api.binance.com/api/v3/ticker/24hr');
-    const topPairs = res.data
-      .filter(p => p.symbol.endsWith('USDT'))
-      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-      .slice(0, 5);
+  loadConfig();
 
-    pairs = topPairs.map(p => p.symbol);
+  const selected = pairs.slice(0, maxSimultaneousTrades);
 
-    for (const p of pairs) {
-      const trade = generateRandomTrade(p.symbol);
-      trades.push(trade);
-    }
-
-  } catch (err) {
-    console.error('Erro na simulação:', err.message);
+  for (const p of selected) {
+    simulateTrade(p);
   }
 
-  setTimeout(simulate, 5000); // Repetir a cada 5 segundos
-};
+  setTimeout(loop, 5000); // Executa a cada 5s
+}
 
 module.exports = {
   start: () => {
     running = true;
-    simulate();
+    trades = [];
+    performance = [];
+    loadConfig();
+    loop();
   },
   stop: () => {
     running = false;
   },
+  setPairs: (newPairs) => {
+    pairs = newPairs;
+  },
   getStatus: () => ({
     running,
     pairs,
-    openPositions: 0,
+    openPositions
   }),
   getTrades: () => trades,
   getPerformance: () => performance,
@@ -73,5 +98,6 @@ module.exports = {
     trades = [];
     performance = [];
     balance = 1000;
+    openPositions = 0;
   }
 };

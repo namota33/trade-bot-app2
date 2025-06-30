@@ -1,15 +1,15 @@
-// vite.config.js
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default {
+export default defineConfig({
   plugins: [react()],
-  build: {
-    target: 'esnext', // ou 'modules'
-    minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: undefined
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://trade-bot-app2.onrender.com', // seu backend Render
+        changeOrigin: true,
+        secure: false
       }
     }
   }
-};
+});
